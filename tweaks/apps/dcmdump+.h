@@ -27,7 +27,7 @@ namespace Tweak {
 	cmd.addOption("--skip-uid",            "-U", 1, "[U]ID prefix",
 		                                        "don't print UIDs that begin with U");
 	cmd.addOption("--tabulate",            "-t",    "tabulate without headers");
-	cmd.addOption("--tabulate-headers",    "-th",   "tabulate with headers");
+	cmd.addOption("--tabulate-headers",    "+t",   "tabulate with headers");
   }
 
 
@@ -55,7 +55,7 @@ namespace Tweak {
       opt_tabulate = OFTrue;
       opt_headers = OFFalse;
     }
-    if (cmd.findOption("--tabulate-with-headers")) {
+    if (cmd.findOption("--tabulate-headers")) {
       opt_tabulate = OFTrue;
       opt_headers = OFTrue;
     }
@@ -148,7 +148,29 @@ namespace Tweak {
       out << s;
     }
   }
-  
+
+
+  void
+  PrintHeader(const char **printTagNames,
+	      int printTagCount,
+	      STD_NAMESPACE ostream &out)
+  {
+    if (opt_headers) {
+      opt_headers = OFFalse;
+
+      if (opt_print_filenames)
+	out << "Filename" << field_sep;
+
+      for (int i = 0; i < printTagCount; i++) {
+	out << (i==0 ? "" : field_sep) << printTagNames[i];
+      }
+      
+      if (opt_print_filename_last)
+	out << field_sep << "Filename";
+
+      out << OFendl;
+    }
+  }
   
   void
   PrintRow(const DcmStack& stack,

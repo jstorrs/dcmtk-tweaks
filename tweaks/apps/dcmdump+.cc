@@ -846,6 +846,7 @@ static int dumpFile(STD_NAMESPACE ostream &out,
 	    dset->print(out, printFlags, 0 /*level*/, pixelFileName, &pixelCounter);
 	}
     } else {
+        Tweak::PrintHeader(printTagNames, printTagCount, out);
         Tweak::FileBegin(ifname, out);
         OFBool firstTag = OFTrue;
         /* only print specified tags */
