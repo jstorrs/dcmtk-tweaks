@@ -4,11 +4,6 @@ set -eux
 
 export CMAKE_CXX_COMPILER_LAUNCHER=ccache
 
-export CMAKE_INSTALL_PREFIX=/usr/local/stow/dcmtk-tweaks
-export DCMTK_DEFAULT_DICT=builtin
-export DCMTK_ENABLE_PRIVATE_TAGS=ON
-export DCMTK_PORTABLE_LINUX_BINARIES=ON
-
 ROOT=$(dirname "$(readlink -e "$0")")
 BUILD_DIR=$ROOT/build
 
@@ -20,7 +15,6 @@ case $(basename $0 .sh) in
 		   -D CMAKE_INSTALL_PREFIX=/usr/local/stow/dcmtk-tweaks \
 		   -D DCMTK_DEFAULT_DICT=builtin \
 		   -D DCMTK_ENABLE_PRIVATE_TAGS=ON \
-		   -D DCMTK_PORTABLE_LINUX_BINARIES=ON \
 		   ..
     ;;
 
