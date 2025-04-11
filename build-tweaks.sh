@@ -15,7 +15,13 @@ BUILD_DIR=$ROOT/build
 case $(basename $0 .sh) in
     configure)
 	cd $BUILD_DIR
-	[ -f CMakeLists.txt ] || cmake ..
+	[ -f CMakeLists.txt ] \
+	    || cmake \
+		   -D CMAKE_INSTALL_PREFIX=/usr/local/stow/dcmtk-tweaks \
+		   -D DCMTK_DEFAULT_DICT=builtin \
+		   -D DCMTK_ENABLE_PRIVATE_TAGS=ON \
+		   -D DCMTK_PORTABLE_LINUX_BINARIES=ON \
+		   ..
     ;;
 
     build)
