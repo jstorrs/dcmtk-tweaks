@@ -14,4 +14,4 @@ cd build
 cmake ..
 cd tweaks
 make -j$(nproc) all
-sudo make install
+sudo cmake -DCMAKE_INSTALL_COMPONENT=bin -P cmake_install.cmake
