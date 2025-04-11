@@ -6,6 +6,7 @@ namespace Tweak {
   OFBool opt_print = OFTrue;
   OFBool opt_print_empty = OFFalse;
   OFBool opt_print_filenames = OFFalse;
+  OFBool opt_print_basenames = OFFalse;
   OFBool opt_print_filename_last = OFFalse;
   OFBool opt_print_known_uid = OFFalse;
   OFBool opt_print_tag_heirarchy = OFTrue;
@@ -20,6 +21,7 @@ namespace Tweak {
     cmd.addGroup("tweaks:");
       cmd.addSubGroup("output:");
         cmd.addOption("--print-with-filename", "-H",    "print filenames");
+        cmd.addOption("--print-with-basename", "-Hb",   "print filenames without directory");
         cmd.addOption("--print-filename-last", "-He",   "print filenames on end");
         cmd.addOption("--print-empty",         "-e",    "print empty elements");
 	cmd.addOption("--print-known-uid",     "-k",    "print known UIDs");
@@ -34,8 +36,14 @@ namespace Tweak {
   void
   configureFromCommandLine(OFCommandLine& cmd, OFConsoleApplication& app)
   {
-    if (cmd.findOption("--print-with-filename"))
+    if (cmd.findOption("--print-with-filename")) {
       opt_print_filenames = OFTrue;
+      opt_print_basenames = OFFalse;
+    }
+    if (cmd.findOption("--print-with-basename")) {
+      opt_print_filenames = OFTrue;
+      opt_print_basenames = OFTrue;
+    }
     if (cmd.findOption("--print-filename-last"))
       opt_print_filename_last = OFTrue;
     if (cmd.findOption("--print-all")) {
@@ -173,6 +181,21 @@ namespace Tweak {
   }
   
   void
+  PrintFilename(const OFFilename &ifname,
+		STD_NAMESPACE ostream &out)
+  {
+    OFFilename result;
+
+    if (opt_tabulate & opt_print_filenames) {
+      if (opt_print_basenames) {
+	out << OFStandard::getFilenameFromPath(result, ifname);
+      } else {
+	out << ifname;
+      }
+    }
+  }
+  
+  void
   PrintRow(const DcmStack& stack,
 	   DcmObject* obj,
 	   const OFFilename &ifname,
@@ -191,8 +214,10 @@ namespace Tweak {
       vr.setVR(obj->ident());
       const char* authority = tag.getPrivateCreator();
       authority = authority ? authority : "DICOM";
-      if (opt_print_filenames)
-	out << ifname << field_sep;
+      if (opt_print_filenames) {
+	PrintFilename(ifname, out);
+	out << field_sep;
+      }
       out << authority << field_sep;
       DumpTagPath(stack,out);
       out << field_sep
@@ -204,7 +229,6 @@ namespace Tweak {
     }
   }
 
-  
   OFBool first_tag = OFFalse;
   
   void
@@ -212,8 +236,8 @@ namespace Tweak {
 	    STD_NAMESPACE ostream &out)
   {
     first_tag = OFTrue;
-    if (opt_tabulate & opt_print_filenames)
-      out << ifname << field_sep;
+    PrintFilename(ifname, out);
+    out << field_sep;
   }
 
 
