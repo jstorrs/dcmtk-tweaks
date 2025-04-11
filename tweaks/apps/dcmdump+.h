@@ -10,6 +10,7 @@ namespace Tweak {
   OFBool opt_print_known_uid = OFFalse;
   OFBool opt_print_tag_heirarchy = OFTrue;
   OFBool opt_tabulate = OFFalse;
+  OFBool opt_headers = OFFalse;
   const char* opt_skip_UID = NULL;
   char field_sep[] = "\t";
   
@@ -25,7 +26,8 @@ namespace Tweak {
 	cmd.addOption("--print-all",           "-a",    "print empty elements and known UIDs");
 	cmd.addOption("--skip-uid",            "-U", 1, "[U]ID prefix",
 		                                        "don't print UIDs that begin with U");
-	cmd.addOption("--tabulate",            "-t",    "tabulate");
+	cmd.addOption("--tabulate",            "-t",    "tabulate without headers");
+	cmd.addOption("--tabulate-headers",    "-th",   "tabulate with headers");
   }
 
 
@@ -51,6 +53,11 @@ namespace Tweak {
     }
     if (cmd.findOption("--tabulate")) {
       opt_tabulate = OFTrue;
+      opt_headers = OFFalse;
+    }
+    if (cmd.findOption("--tabulate-with-headers")) {
+      opt_tabulate = OFTrue;
+      opt_headers = OFTrue;
     }
     if (isatty(STDIN_FILENO))
       opt_stdin = OFFalse;
