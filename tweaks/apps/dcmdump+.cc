@@ -895,6 +895,10 @@ static int dumpFile(STD_NAMESPACE ostream &out,
                 }
               }
             }
+	    else if (Tweak::opt_tabulate) {
+	      Tweak::TagBegin(out);
+	      Tweak::TagEnd(out);
+	    }
         }
 
 	if (Tweak::opt_tabulate)
