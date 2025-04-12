@@ -152,11 +152,11 @@ namespace Tweak {
       if (opt_tabulate) {
 	if ((s.front() == '[') & (s.back() == ']'))
 	  s = s.substr(1, s.size()-2);
-	else if ((s.front() == '"') & (s.back() == '"'))
+	if ((s.front() == '"') & (s.back() == '"'))
 	  s = s.substr(1, s.size()-2);
-	else if ((s.front() == '\'') & (s.back() == '\''))
+	if ((s.front() == '\'') & (s.back() == '\''))
 	  s = s.substr(1, s.size()-2);
-	else if (s == "(no value available)")
+	if (s == "(no value available)")
 	  s = "";
       }
       out << s;
