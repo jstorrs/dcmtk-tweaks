@@ -140,31 +140,6 @@ namespace Tweak {
 
 
   void
-  SafePrint(DcmObject* obj,
-	    STD_NAMESPACE ostream &out,
-	    const size_t flags)
-  {
-    if (obj) {
-      std::stringstream ss;
-      Tweaks::PF_ValueOnly = OFTrue;    
-      obj->print(ss, flags);
-      std::string s = ss.str();
-      if (opt_tabulate) {
-	if ((s.front() == '[') & (s.back() == ']'))
-	  s = s.substr(1, s.size()-2);
-	if ((s.front() == '"') & (s.back() == '"'))
-	  s = s.substr(1, s.size()-2);
-	if ((s.front() == '\'') & (s.back() == '\''))
-	  s = s.substr(1, s.size()-2);
-	if (s == "(no value available)")
-	  s = "";
-      }
-      out << s;
-    }
-  }
-
-
-  void
   PrintHeader(const char **printTagNames,
 	      int printTagCount,
 	      STD_NAMESPACE ostream &out)
@@ -192,7 +167,7 @@ namespace Tweak {
   {
     OFFilename result;
 
-    if (opt_tabulate & opt_print_filenames) {
+    if (opt_print_filenames) {
       if (opt_print_basenames) {
 	out << OFStandard::getFilenameFromPath(result, ifname);
       } else {
@@ -200,50 +175,31 @@ namespace Tweak {
       }
     }
   }
-  
-  void
-  PrintRow(const DcmStack& stack,
-	   DcmObject* obj,
-	   const OFFilename &ifname,
-	   STD_NAMESPACE ostream &out,
-	   const size_t flags)
-  {
-    if (obj) {
-      if (!opt_print_known_uid && isKnownUID(obj))
-	return;
-      
-      if (!opt_print_empty && (obj->getVM() == 0))
-	return;
 
-      DcmTag tag = obj->getTag();
-      DcmVR vr;
-      vr.setVR(obj->ident());
-      const char* authority = tag.getPrivateCreator();
-      authority = authority ? authority : "DICOM";
-      if (opt_print_filenames) {
-	PrintFilename(ifname, out);
-	out << field_sep;
-      }
-      out << authority << field_sep;
-      DumpTagPath(stack,out);
-      out << field_sep
-	  << vr.getVRName() << field_sep
-	  << tag.getTagName() << field_sep
-	  << obj->getVM() << field_sep;
-      SafePrint(obj, out, flags);
-      out << OFendl;
-    }
-  }
 
   OFBool first_tag = OFFalse;
-  
+
   void
   FileBegin(const OFFilename &ifname,
 	    STD_NAMESPACE ostream &out)
   {
     first_tag = OFTrue;
-    PrintFilename(ifname, out);
-    out << field_sep;
+    if (opt_print_filenames) {
+      PrintFilename(ifname, out);
+      out << field_sep;
+    }
+  }
+
+
+  void
+  FileEnd(const OFFilename &ifname,
+	  STD_NAMESPACE ostream &out)
+  {
+    if (opt_tabulate && opt_print_filename_last) {
+      out << field_sep;
+      PrintFilename(ifname, out);
+    }
+    out << OFendl;
   }
 
 
@@ -264,14 +220,59 @@ namespace Tweak {
 
 
   void
-  FileEnd(const OFFilename &ifname,
-	  STD_NAMESPACE ostream &out)
+  PrintTag(DcmObject* obj,
+	   STD_NAMESPACE ostream &out,
+	   const size_t flags)
   {
-    if (opt_tabulate) {
-      if (opt_print_filename_last)
-	out << field_sep << ifname << OFendl;
-      else
-	out << OFendl;
+    if (obj) {
+      std::stringstream ss;
+      Tweaks::PF_ValueOnly = OFTrue;    
+      obj->print(ss, flags);
+      std::string s = ss.str();
+      if (opt_tabulate) {
+	if ((s.front() == '[') & (s.back() == ']'))
+	  s = s.substr(1, s.size()-2);
+	if ((s.front() == '"') & (s.back() == '"'))
+	  s = s.substr(1, s.size()-2);
+	if ((s.front() == '\'') & (s.back() == '\''))
+	  s = s.substr(1, s.size()-2);
+	if (s == "(no value available)")
+	  s = "";
+      }
+      out << s;
+    }
+  }
+
+
+  void
+  PrintRow(const DcmStack& stack,
+	   DcmObject* obj,
+	   const OFFilename &ifname,
+	   STD_NAMESPACE ostream &out,
+	   const size_t flags)
+  {
+    if (obj) {
+      if (!opt_print_known_uid && isKnownUID(obj))
+	return;
+      
+      if (!opt_print_empty && (obj->getVM() == 0))
+	return;
+
+      DcmTag tag = obj->getTag();
+      DcmVR vr;
+      vr.setVR(obj->ident());
+      const char* authority = tag.getPrivateCreator();
+      authority = authority ? authority : "DICOM";
+
+      FileBegin(ifname, out);
+      out << authority << field_sep;
+      DumpTagPath(stack,out);
+      out << field_sep
+	  << vr.getVRName() << field_sep
+	  << tag.getTagName() << field_sep
+	  << obj->getVM() << field_sep;
+      PrintTag(obj, out, flags);
+      out << OFendl;
     }
   }
 
@@ -284,9 +285,10 @@ namespace Tweak {
   {
     Tweaks::PF_ValueOnly = OFTrue;
     DcmObject* obj = GetObjectFromStack(stack);
-    if (opt_tabulate)
-      SafePrint(obj, out, flags);
-    else
+    if (opt_tabulate) {
+      TagBegin(out);
+      PrintTag(obj, out, flags);
+    } else
       PrintRow(stack, obj, ifname, out, flags);
   }
   
@@ -299,9 +301,7 @@ namespace Tweak {
   {
     DcmStack stack;
     while (obj->nextObject(stack, OFTrue).good()) {
-      TagBegin(out);
       DumpObject(stack, ifname, out, flags);
-      TagEnd(out);
     }
   }
   
@@ -314,12 +314,9 @@ namespace Tweak {
   {
     Tweaks::PF_ValueOnly = OFTrue;
     DcmFileFormat* dfile = static_cast<DcmFileFormat*>(dset);
-    FileBegin(ifname,out);
     DumpChildren(dfile->getMetaInfo(), ifname, out, flags);
     DumpChildren(dfile->getDataset(), ifname, out, flags);
-    FileEnd(ifname,out);
   }
 
   
 }
-
