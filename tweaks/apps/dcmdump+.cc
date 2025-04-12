@@ -735,6 +735,37 @@ DCMTK_MAIN_FUNCTION
     return errorCount;
 }
 
+static void printResult(STD_NAMESPACE ostream &out,
+                        DcmStack &stack,
+                        size_t printFlags,
+                        const char*pixelFileName = NULL,
+                        size_t *pixelCounter = NULL)
+{
+    unsigned long n = stack.card();
+    if (n == 0) {
+        return;
+    }
+
+    if (prependSequenceHierarchy) {
+        if (printFlags & DCMTypes::PF_useANSIEscapeCodes)
+            out << DCMDATA_ANSI_ESCAPE_CODE_TAG;
+        /* print the path leading up to the top stack elem */
+        for (unsigned long i = n - 1; i >= 1; i--) {
+            DcmObject *dobj = stack.elem(i);
+            /* do not print if a DCM_Item as this is not
+             * very helpful to distinguish instances.
+             */
+            if (dobj != NULL && dobj->getTag() != DCM_Item) {
+                out << dobj->getTag() << ".";
+            }
+        }
+    }
+
+    /* print the tag and its value */
+    DcmObject *dobj = stack.top();
+    dobj->print(out, printFlags, 1 /*level*/, pixelFileName, pixelCounter);
+}
+
 static int dumpFile(STD_NAMESPACE ostream &out,
                     const OFFilename &ifname,
                     const E_FileReadMode readMode,
@@ -812,13 +843,14 @@ static int dumpFile(STD_NAMESPACE ostream &out,
         if (Tweak::opt_print) {
 	  Tweak::DumpDataset(dset, ifname, out, printFlags);
 	} else {
-	    dset->print(out, printFlags, 0 /*level*/, pixelFileName, &pixelCounter);
-	}
+        dset->print(out, printFlags, 0 /*level*/, pixelFileName, &pixelCounter);
+        }
     } else {
         Tweak::PrintHeader(printTagNames, printTagCount, out);
-	if (Tweak::opt_tabulate)
-	  Tweak::FileBegin(ifname, out);
-
+	if (Tweak::opt_tabulate) {
+	    Tweak::FileBegin(ifname, out);
+        }
+        OFBool firstTag = OFTrue;
         /* only print specified tags */
         for (int i = 0; i < printTagCount; i++)
         {
@@ -839,8 +871,30 @@ static int dumpFile(STD_NAMESPACE ostream &out,
             DcmStack stack;
             if (dset->search(searchKey, stack, ESM_fromHere, OFTrue) == EC_Normal)
             {
-	        Tweak::DumpObject(stack, ifname, out, printFlags);
-	    }
+              if (Tweak::opt_print) {
+                  Tweak::DumpObject(stack, ifname, out, printFlags);
+              } else {
+                if (firstTag)
+                {
+                    if (!printFilename)
+                    {
+                        /* a newline separates two consecutive "dumps" */
+                        if (++fileCounter > 1)
+                            COUT << OFendl;
+                    }
+                    /* print header with filename */
+                    if (printFileSearch)
+                        COUT << "# " << OFFIS_CONSOLE_APPLICATION << " (" << fileCounter << "): " << ifname << OFendl;
+                    firstTag = OFFalse;
+                }
+                printResult(out, stack, printFlags, pixelFileName, &pixelCounter);
+                if (printAllInstances)
+                {
+                    while (dset->search(searchKey, stack, ESM_afterStackTop, OFTrue) == EC_Normal)
+                      printResult(out, stack, printFlags, pixelFileName, &pixelCounter);
+                }
+              }
+            }
         }
 
 	if (Tweak::opt_tabulate)
