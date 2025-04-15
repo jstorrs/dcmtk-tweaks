@@ -164,7 +164,7 @@ DCMTK_MAIN_FUNCTION
     cmd.setOptionColumns(LONGCOL, SHORTCOL);
     cmd.setParamColumn(LONGCOL + SHORTCOL + 4);
 
-    cmd.addParam("dcmfile-in", "DICOM input file or directory to be dumped\n(\"-\" for stdin)", OFCmdParam::PM_MultiMandatory);
+    cmd.addParam("dcmfile-in", "DICOM input file or directory to be dumped\n(\"-\" for stdin)", OFCmdParam::PM_MultiOptional);
     Tweak::addOptions(cmd);
 
     cmd.addGroup("general options:", LONGCOL, SHORTCOL + 2);
