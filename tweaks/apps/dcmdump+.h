@@ -10,11 +10,18 @@ namespace Tweak {
   OFBool opt_print_filename_last = OFFalse;
   OFBool opt_print_known_uid = OFFalse;
   OFBool opt_print_tag_heirarchy = OFTrue;
+  OFBool opt_context = OFFalse;
   OFBool opt_tabulate = OFFalse;
   OFBool opt_headers = OFFalse;
   const char* opt_skip_UID = NULL;
   char field_sep[] = "\t";
   
+  int contextTagCount = 0;
+  const int MAX_CONTEXT_TAG_NAMES = 1024;
+  const char *contextTagNames[MAX_CONTEXT_TAG_NAMES];
+  const DcmTagKey *contextTagKeys[MAX_CONTEXT_TAG_NAMES];
+  std::stringstream contextStream;
+
   void
   addOptions(OFCommandLine& cmd)
   {
@@ -29,12 +36,53 @@ namespace Tweak {
 	cmd.addOption("--skip-uid",            "-U", 1, "[U]ID prefix",
 		                                        "don't print UIDs that begin with U");
 	cmd.addOption("--tabulate",            "-t",    "tabulate without headers");
-	cmd.addOption("--tabulate-headers",    "+t",   "tabulate with headers");
+	cmd.addOption("--tabulate-headers",    "+t",    "tabulate with headers");
+	cmd.addOption("--print-context",      "+Pc", 1, "[t]ag: \"gggg,eeee\" or dictionary name", "prefix lines with context of tag\nthis option can be specified multiple times");
   }
 
 
-  void
-  configureFromCommandLine(OFCommandLine& cmd, OFConsoleApplication& app)
+  /* See addPrintTagName */
+  static OFBool addContextTagName(const char *tagName, OFLogger& dcmdumpLogger)
+  {
+    if (contextTagCount >= MAX_CONTEXT_TAG_NAMES) {
+      OFLOG_WARN(dcmdumpLogger, "too many context tag options (max: " << MAX_CONTEXT_TAG_NAMES << ")");
+      return OFFalse;
+    }
+    
+    unsigned int group = 0xffff;
+    unsigned int elem = 0xffff;
+    if (sscanf(tagName, "%x,%x", &group, &elem) != 2)
+    {
+      /* it is a name */
+      const DcmDataDictionary &globalDataDict = dcmDataDict.rdlock();
+      const DcmDictEntry *dicent = globalDataDict.findEntry(tagName);
+      if (dicent == NULL) {
+	OFLOG_WARN(dcmdumpLogger, "unrecognized tag name: '" << tagName << "'");
+	dcmDataDict.rdunlock();
+	return OFFalse;
+      } else {
+	/* note for later */
+	contextTagKeys[contextTagCount] = new DcmTagKey(dicent->getKey());
+      }
+      dcmDataDict.rdunlock();
+    } else {
+      /* tag name has format xxxx,xxxx */
+      /* do not lookup in dictionary, tag could be private */
+      contextTagKeys[contextTagCount] = NULL;
+    }
+    
+    size_t buflen = strlen(tagName)+1;
+    char *buf = OFstatic_cast(char*, malloc(buflen));
+    OFStandard::strlcpy(buf, tagName, buflen);
+    contextTagNames[contextTagCount] = buf;
+    contextTagCount++;
+    return OFTrue;
+  }
+
+
+  
+  static OFBool
+  configureFromCommandLine(OFCommandLine& cmd, OFConsoleApplication& app, OFLogger& dcmdumpLogger)
   {
     if (cmd.findOption("--print-with-filename")) {
       opt_print_filenames = OFTrue;
@@ -59,6 +107,15 @@ namespace Tweak {
     if (cmd.findOption("--skip-uid")) {
       cmd.getValue(opt_skip_UID);
     }
+    if (cmd.findOption("--print-context", 0, OFCommandLine::FOM_FirstFromLeft))
+    {
+      const char *tagName = NULL;
+      do
+      {
+        app.checkValue(cmd.getValue(tagName));
+        if (!addContextTagName(tagName, dcmdumpLogger)) return OFFalse;
+      } while (cmd.findOption("--print-context", 0, OFCommandLine::FOM_NextFromLeft));
+    }
     if (cmd.findOption("--tabulate")) {
       opt_tabulate = OFTrue;
       opt_headers = OFFalse;
@@ -67,10 +124,14 @@ namespace Tweak {
       opt_tabulate = OFTrue;
       opt_headers = OFTrue;
     }
+    if (!opt_tabulate && contextTagCount > 0) {
+      opt_context = OFTrue;
+    }
     if (isatty(STDIN_FILENO))
       opt_stdin = OFFalse;
     else
       opt_stdin = OFTrue;
+    return OFTrue;
   }
 
   
@@ -192,6 +253,17 @@ namespace Tweak {
 
 
   void
+  PrintContext(const OFFilename &ifname,
+	       STD_NAMESPACE ostream &out)
+  {
+    if (opt_context) {
+      first_tag = OFTrue;
+      std::string s = contextStream.str();
+      out << s << field_sep;
+    }
+  }
+
+  void
   FileEnd(const OFFilename &ifname,
 	  STD_NAMESPACE ostream &out)
   {
@@ -265,6 +337,7 @@ namespace Tweak {
       authority = authority ? authority : "DICOM";
 
       FileBegin(ifname, out);
+      PrintContext(ifname, out);
       out << authority << field_sep;
       DumpTagPath(stack,out);
       out << field_sep
@@ -304,8 +377,55 @@ namespace Tweak {
       DumpObject(stack, ifname, out, flags);
     }
   }
+
+  void
+  AddContext(const DcmStack& stack,
+	     const size_t flags)
+  {
+    DcmObject* obj = GetObjectFromStack(stack);
+    if (obj) {
+      opt_tabulate = OFTrue;
+      TagBegin(contextStream);
+      PrintTag(obj, contextStream, flags);
+      TagEnd(contextStream);
+      opt_tabulate = OFFalse;
+    }
+  }
   
   
+  void
+  LoadContext(DcmObject* dset,
+	      OFLogger& dcmdumpLogger,
+	      const size_t flags)
+  {
+    contextStream.str("");
+    
+    /* only context specified tags */
+    for (int i = 0; i < contextTagCount; i++)
+      {
+	unsigned int group = 0xffff;
+	unsigned int elem = 0xffff;
+	DcmTagKey searchKey;
+	const char *tagName = contextTagNames[i];
+	if (contextTagKeys[i])
+	  searchKey = *contextTagKeys[i];
+	else if (sscanf(tagName, "%x,%x", &group, &elem) == 2)
+	  searchKey.set(OFstatic_cast(Uint16, group), OFstatic_cast(Uint16, elem));
+	else {
+	  OFLOG_FATAL(dcmdumpLogger, "Internal ERROR in File " << __FILE__ << ", Line "
+		      << __LINE__ << OFendl << " -- Named tag inconsistency");
+	  abort();
+	}
+	
+	DcmStack stack;
+	if (dset->search(searchKey, stack, ESM_fromHere, OFTrue) == EC_Normal)
+	  {
+	    AddContext(stack, flags);
+	  }
+      }
+  }
+
+
   void
   DumpDataset(DcmObject* dset,
 	      const OFFilename &ifname,

@@ -316,7 +316,7 @@ DCMTK_MAIN_FUNCTION
       OFLog::configureFromCommandLine(cmd, app);
 
       /* Tweak options */
-      Tweak::configureFromCommandLine(cmd, app);
+      if (!Tweak::configureFromCommandLine(cmd, app, dcmdumpLogger)) return 1;
       
       /* input options */
       cmd.beginOptionBlock();
@@ -837,6 +837,10 @@ static int dumpFile(STD_NAMESPACE ostream &out,
         pixelFileName = pixelFilenameStr.getCharPointer();
     }
 
+    if (Tweak::opt_context) {
+      Tweak::LoadContext(dset, dcmdumpLogger, printFlags);
+    }
+    
     /* dump complete file content */
     if (printTagCount == 0)
     {
