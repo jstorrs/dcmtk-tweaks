@@ -399,6 +399,7 @@ namespace Tweak {
 	      const size_t flags)
   {
     contextStream.str("");
+    first_tag = OFTrue;
     
     /* only context specified tags */
     for (int i = 0; i < contextTagCount; i++)
@@ -423,6 +424,8 @@ namespace Tweak {
 	    AddContext(stack, flags);
 	  }
       }
+
+    first_tag = OFTrue;
   }
 
 
