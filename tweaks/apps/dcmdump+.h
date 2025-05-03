@@ -302,6 +302,8 @@ namespace Tweak {
       obj->print(ss, flags);
       std::string s = ss.str();
       if (opt_tabulate) {
+	if (s.front() == '=')
+	  s = s.substr(1, s.size()-1);
 	if ((s.front() == '[') & (s.back() == ']'))
 	  s = s.substr(1, s.size()-2);
 	if ((s.front() == '"') & (s.back() == '"'))
