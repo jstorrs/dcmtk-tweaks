@@ -4,6 +4,6 @@ This repository contains modifications and extensions to DCMTK utilities that I 
 
 Modified executibles are suffixed with a "+" to avoid conflicts with official executables.
 
-* **dcmdump+** dcmdump with enhancements for large datasets
+* **dcmdump+** dcmdump with enhancements for shell scripts and large datasets
+* **dcmftest+** dcmftest with adaptations for shell scripts
 * **storescp+** storescp with Maildir-inspired delivery behavior
-* **dcmftest+** dcmftest with adaptations to simplify use in shell scripts
